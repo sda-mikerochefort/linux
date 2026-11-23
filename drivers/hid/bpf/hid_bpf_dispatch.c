@@ -571,6 +571,7 @@ hid_bpf_input_report(struct hid_bpf_ctx *ctx, enum hid_report_type type, u8 *buf
 
 	return ret;
 }
+
 /**
  * hid_bpf_get_string_descriptor - Read a raw string descriptor from a HID device
  *
