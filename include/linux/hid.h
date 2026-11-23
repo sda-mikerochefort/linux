@@ -949,6 +949,9 @@ struct hid_driver {
  * @output_report: send output report to device
  * @idle: send idle request to device
  * @may_wakeup: return if device may act as a wakeup source during system-suspend
+ * @get_string_descriptor: read a raw string descriptor from the transport
+ *			   (e.g. a USB string descriptor), returning the number of
+ *			   bytes read including the descriptor header
  * @max_buffer_size: over-ride maximum data buffer size (default: HID_MAX_BUFFER_SIZE)
  */
 struct hid_ll_driver {
@@ -975,6 +978,9 @@ struct hid_ll_driver {
 
 	int (*idle)(struct hid_device *hdev, int report, int idle, int reqtype);
 	bool (*may_wakeup)(struct hid_device *hdev);
+
+	int (*get_string_descriptor)(struct hid_device *hdev, u8 index,
+				     u16 langid, u8 *buf, size_t len);
 
 	unsigned int max_buffer_size;
 };
@@ -1227,6 +1233,8 @@ int hid_hw_raw_request(struct hid_device *hdev,
 		       size_t len, enum hid_report_type rtype,
 		       enum hid_class_request reqtype);
 int hid_hw_output_report(struct hid_device *hdev, __u8 *buf, size_t len);
+int hid_hw_get_string_descriptor(struct hid_device *hdev, u8 index, u16 langid,
+				 u8 *buf, size_t len);
 
 /**
  * hid_hw_power - requests underlying HW to go into given power mode

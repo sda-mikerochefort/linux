@@ -2617,6 +2617,42 @@ int hid_hw_output_report(struct hid_device *hdev, __u8 *buf, size_t len)
 }
 EXPORT_SYMBOL_GPL(hid_hw_output_report);
 
+/**
+ * hid_hw_get_string_descriptor - read a raw string descriptor from the device
+ *
+ * @hdev: hid device
+ * @index: string descriptor index
+ * @langid: language ID of the string descriptor
+ * @buf: buffer the descriptor is written to; must be suitable for DMA
+ * @len: size of @buf
+ *
+ * Reads a string descriptor from the underlying transport, if the transport
+ * supports it (currently only USB). The descriptor is returned as sent by the
+ * device, including the two header bytes (bLength, bDescriptorType) and
+ * without any character set conversion. Some devices return binary data in
+ * vendor-specific string descriptors, or change mode when one is read.
+ *
+ * May sleep.
+ *
+ * Return: count of bytes read, -EOPNOTSUPP if the transport does not provide
+ * string descriptors, or another negative error code.
+ */
+int hid_hw_get_string_descriptor(struct hid_device *hdev, u8 index, u16 langid,
+				 u8 *buf, size_t len)
+{
+	might_sleep();
+
+	if (!buf || len < 2)
+		return -EINVAL;
+
+	if (!hdev->ll_driver->get_string_descriptor)
+		return -EOPNOTSUPP;
+
+	return hdev->ll_driver->get_string_descriptor(hdev, index, langid,
+						      buf, len);
+}
+EXPORT_SYMBOL_GPL(hid_hw_get_string_descriptor);
+
 #ifdef CONFIG_PM
 int hid_driver_suspend(struct hid_device *hdev, pm_message_t state)
 {
