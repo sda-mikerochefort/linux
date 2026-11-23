@@ -134,29 +134,34 @@ static int uclogic_input_configured(struct hid_device *hdev,
 	struct uclogic_drvdata *drvdata = hid_get_drvdata(hdev);
 	struct uclogic_params *params = &drvdata->params;
 	const char *suffix = NULL;
-	struct hid_field *field;
-	size_t i;
+	struct hid_report *report;
+	size_t i, nreports = 0;
 	const struct uclogic_params_frame *frame;
 
-	/* no report associated (HID_QUIRK_MULTI_INPUT not set) */
-	if (!hi->report)
-		return 0;
+	list_for_each_entry(report, &hi->reports, hidinput_list) {
+		nreports++;
 
-	/*
-	 * If this is the input corresponding to the pen report
-	 * in need of tweaking.
-	 */
-	if (hi->report->id == params->pen.id) {
-		/* Remember the input device so we can simulate events */
-		drvdata->pen_input = hi->input;
-	}
+		/*
+		 * If this is the input corresponding to the pen report
+		 * in need of tweaking.
+		 */
+		if (report->id == params->pen.id) {
+			/* Remember the input device so we can simulate events */
+			drvdata->pen_input = hi->input;
+		}
 
-	/* If it's one of the frame devices */
-	for (i = 0; i < ARRAY_SIZE(params->frame_list); i++) {
-		frame = &params->frame_list[i];
-		if (hi->report->id == frame->id) {
-			/* Assign custom suffix, if any */
-			suffix = frame->suffix;
+		/* If it's one of the frame reports */
+		for (i = 0; i < ARRAY_SIZE(params->frame_list); i++) {
+			frame = &params->frame_list[i];
+			if (report->id != frame->id)
+				continue;
+			/*
+			 * A custom suffix only applies when the frame report
+			 * has an input device of its own, e.g. "Battery".
+			 * Buttons, rings, strips and dials share the pad.
+			 */
+			if (!suffix)
+				suffix = frame->suffix;
 			/*
 			 * Disable EV_MSC reports for touch ring interfaces to
 			 * make the Wacom driver pickup touch ring extents
@@ -166,10 +171,11 @@ static int uclogic_input_configured(struct hid_device *hdev,
 		}
 	}
 
-	if (!suffix) {
-		field = hi->report->field[0];
+	if (nreports != 1)
+		suffix = NULL;
 
-		switch (field->application) {
+	if (!suffix) {
+		switch (hi->application) {
 		case HID_GD_KEYBOARD:
 			suffix = "Keyboard";
 			break;
@@ -213,10 +219,12 @@ static int uclogic_probe(struct hid_device *hdev,
 		return -EINVAL;
 
 	/*
-	 * libinput requires the pad interface to be on a different node
-	 * than the pen, so use QUIRK_MULTI_INPUT for all tablets.
+	 * Create one input device per HID application: the pen (Digitizer
+	 * or Pen) and the pad (Keypad) end up on separate nodes, as
+	 * userspace requires, while all frame reports (buttons, touch
+	 * rings and strips, dials) share a single pad node.
 	 */
-	hdev->quirks |= HID_QUIRK_MULTI_INPUT;
+	hdev->quirks |= HID_QUIRK_INPUT_PER_APP;
 	hdev->quirks |= HID_QUIRK_HIDINPUT_FORCE;
 
 	/* Allocate and assign driver data */
