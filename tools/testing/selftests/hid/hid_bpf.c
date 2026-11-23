@@ -984,6 +984,64 @@ TEST_F(hid_bpf, test_rdesc_fixup_get_data_overflow)
 	ASSERT_EQ(self->skel->bss->get_data_overflow_check, 1);
 }
 
+struct hid_get_string_descriptor_syscall_args {
+	__u8 data[255];
+	unsigned int hid;
+	int retval;
+	size_t size;
+	__u8 index;
+	__u16 langid;
+};
+
+/*
+ * Call hid_bpf_get_string_descriptor() against a uhid device: uhid does not
+ * provide string descriptors, so the call must fail with -EOPNOTSUPP, and a
+ * buffer too small for the descriptor header must be rejected.
+ */
+TEST_F(hid_bpf, test_hid_user_get_string_descriptor_uhid)
+{
+	struct hid_get_string_descriptor_syscall_args args = {
+		.retval = 1,
+		.size = sizeof(args.data),
+		.index = 1,
+		.langid = 0x0409,
+	};
+	DECLARE_LIBBPF_OPTS(bpf_test_run_opts, tattrs,
+			    .ctx_in = &args,
+			    .ctx_size_in = sizeof(args),
+	);
+	int err, prog_fd;
+
+	LOAD_BPF;
+
+	args.hid = self->hid.hid_id;
+	prog_fd = bpf_program__fd(self->skel->progs.hid_user_get_string_descriptor);
+
+	err = bpf_prog_test_run_opts(prog_fd, &tattrs);
+	ASSERT_OK(err) TH_LOG("error while calling bpf_prog_test_run_opts");
+	ASSERT_EQ(args.retval, -EOPNOTSUPP);
+
+	args.retval = 1;
+	args.size = 1;
+	err = bpf_prog_test_run_opts(prog_fd, &tattrs);
+	ASSERT_OK(err) TH_LOG("error while calling bpf_prog_test_run_opts");
+	ASSERT_EQ(args.retval, -EINVAL);
+}
+
+/*
+ * A sleepable hid_rdesc_fixup can call hid_bpf_get_string_descriptor().
+ */
+TEST_F(hid_bpf, test_rdesc_fixup_get_string_descriptor)
+{
+	const struct test_program progs[] = {
+		{ .name = "hid_rdesc_fixup_get_string_descriptor" },
+	};
+
+	LOAD_PROGRAMS(progs);
+
+	ASSERT_EQ(self->skel->data->rdesc_fixup_string_descriptor_retval, -EOPNOTSUPP);
+}
+
 TEST_F(hid_bpf, test_rdesc_fixup_change_uniq_name_phys)
 {
 	const struct test_program progs[] = {

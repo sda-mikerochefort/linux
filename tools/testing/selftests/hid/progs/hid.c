@@ -281,6 +281,60 @@ struct hid_bpf_ops rdesc_fixup_change_uniq_name_phys = {
 	.hid_rdesc_fixup = (void *)hid_rdesc_fixup_change_uniq_name_phys,
 };
 
+struct hid_get_string_descriptor_syscall_args {
+	/* data needs to come at offset 0 so we can use it in calls */
+	__u8 data[255];
+	unsigned int hid;
+	int retval;
+	size_t size;
+	__u8 index;
+	__u16 langid;
+};
+
+SEC("syscall")
+int hid_user_get_string_descriptor(struct hid_get_string_descriptor_syscall_args *args)
+{
+	struct hid_bpf_ctx *ctx;
+	size_t size = args->size;
+
+	if (size > sizeof(args->data))
+		return -7; /* -E2BIG */
+
+	ctx = hid_bpf_allocate_context(args->hid);
+	if (!ctx)
+		return -1; /* EPERM check */
+
+	args->retval = hid_bpf_get_string_descriptor(ctx, args->index,
+						     args->langid,
+						     args->data, size);
+
+	hid_bpf_release_context(ctx);
+
+	return 0;
+}
+
+int rdesc_fixup_string_descriptor_retval = 1;
+
+/*
+ * hid_bpf_get_string_descriptor() is sleepable, so it can be called
+ * from a sleepable hid_rdesc_fixup. uhid has no string descriptors.
+ */
+SEC("?struct_ops.s/hid_rdesc_fixup")
+int BPF_PROG(hid_rdesc_fixup_get_string_descriptor, struct hid_bpf_ctx *hid_ctx)
+{
+	__u8 buf[64] = {};
+
+	rdesc_fixup_string_descriptor_retval =
+		hid_bpf_get_string_descriptor(hid_ctx, 1, 0x0409, buf, sizeof(buf));
+
+	return 0;
+}
+
+SEC(".struct_ops.link")
+struct hid_bpf_ops rdesc_fixup_get_string_descriptor = {
+	.hid_rdesc_fixup = (void *)hid_rdesc_fixup_get_string_descriptor,
+};
+
 SEC("?struct_ops/hid_device_event")
 int BPF_PROG(hid_test_insert1, struct hid_bpf_ctx *hid_ctx, enum hid_report_type type)
 {

@@ -127,6 +127,9 @@ extern int hid_bpf_try_input_report(struct hid_bpf_ctx *ctx,
 				    enum hid_report_type type,
 				    __u8 *data,
 				    size_t buf__sz) __weak __ksym;
+extern int hid_bpf_get_string_descriptor(struct hid_bpf_ctx *ctx,
+					 __u8 index, __u16 langid,
+					 __u8 *buf, size_t buf__sz) __weak __ksym;
 
 /* bpf_wq implementation */
 extern int bpf_wq_init(struct bpf_wq *wq, void *p__map, unsigned int flags) __weak __ksym;
