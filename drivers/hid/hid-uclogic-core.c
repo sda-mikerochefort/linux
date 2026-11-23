@@ -96,10 +96,16 @@ static int uclogic_input_mapping(struct hid_device *hdev,
 	struct uclogic_drvdata *drvdata = hid_get_drvdata(hdev);
 	struct uclogic_params *params = &drvdata->params;
 
-	if (field->application == HID_GD_KEYPAD) {
+	if (field->application == HID_GD_KEYPAD && field->maxusage > 10) {
 		/*
 		 * Remap input buttons to sensible ones that are not invalid.
-		 * This only affects previous behavior for devices with more than ten or so buttons.
+		 * Only frames with more than ten buttons in a single field
+		 * need this: the default mapping of the eleventh button usage
+		 * onwards falls outside the BTN_0..BTN_9 range. Frames that
+		 * split their buttons into several fields of up to ten (e.g.
+		 * BTN_0..BTN_9 plus BTN_A.. in a Gamepad collection) are
+		 * already mapped correctly by hid-input and must not be
+		 * remapped, or their buttons collide.
 		 */
 		const int key = (usage->hid & HID_USAGE) - 1;
 
