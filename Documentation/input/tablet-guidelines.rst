@@ -236,7 +236,10 @@ Rotary dials are relative controls. The first dial MUST be reported as
 ``REL_HWHEEL`` and ``REL_HWHEEL_HI_RES``. The high-resolution codes follow the
 semantics in Documentation/input/event-codes.rst: 120 represents one detent.
 Clockwise rotation, as seen by the user with the device in its default
-orientation, MUST be reported as a positive value. Drivers MUST NOT report
+(right-handed) orientation, MUST be reported as a positive value, and
+counter-clockwise rotation as a negative value. The kernel always reports
+the device's default orientation. When the user configures the device for
+left-handed use, userspace reverses the direction. Drivers MUST NOT report
 ``REL_DIAL`` together with ``REL_WHEEL`` on a pad node.
 
 Finger lift on rings and strips
@@ -271,17 +274,20 @@ Mode LEDs
 LEDs that show the current mode of a pad mode group MUST be registered as LED
 class devices on the pad's input device, one LED per mode, named::
 
-  <input device>::wacom-<group>.<mode>
+  <input device>::tablet-<group>.<mode>
 
-where ``<group>`` and ``<mode>`` are 0-based. This is the name that the
-``wacom`` driver registers today and that userspace already consumes. The
-``wacom_led`` sysfs attributes are legacy ABI and MUST NOT be added to other
-drivers. RGB indicators SHOULD use the multicolor LED class.
+where ``<group>`` and ``<mode>`` are 0-based, for example
+``input12::tablet-0.2`` for the third mode of the first mode group. The
+brightness of the LED of the active mode is non-zero. Userspace reads the
+brightness to find the active mode, so drivers that switch modes in
+hardware or in the kernel MUST keep the brightness up to date. RGB
+indicators SHOULD use the multicolor LED class.
 
-.. note::
-
-   The ``wacom-`` prefix is retained for compatibility with existing
-   userspace. A vendor-neutral name is under discussion.
+The ``wacom`` driver registers the same LEDs as
+``<input device>::wacom-<group>.<mode>``. That name is existing ABI and
+is retained. Userspace SHOULD look for ``::tablet-`` first and fall back to
+``::wacom-``. The ``wacom_led`` sysfs attributes are legacy ABI and MUST NOT
+be added to other drivers.
 
 Battery
 =======
