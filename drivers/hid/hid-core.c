@@ -3273,6 +3273,7 @@ static const struct hid_ops __hid_ops = {
 	.hid_hw_raw_request = __hid_hw_raw_request,
 	.hid_hw_output_report = __hid_hw_output_report,
 	.hid_input_report = __hid_input_report,
+	.hid_hw_get_string_descriptor = hid_hw_get_string_descriptor,
 	.owner = THIS_MODULE,
 	.bus_type = &hid_bus_type,
 };

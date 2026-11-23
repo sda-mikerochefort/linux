@@ -571,6 +571,55 @@ hid_bpf_input_report(struct hid_bpf_ctx *ctx, enum hid_report_type type, u8 *buf
 
 	return ret;
 }
+/**
+ * hid_bpf_get_string_descriptor - Read a raw string descriptor from a HID device
+ *
+ * @ctx: the HID-BPF context previously allocated in hid_bpf_allocate_context()
+ * @index: the string descriptor index
+ * @langid: the language ID, e.g. %0x0409 for US English
+ * @buf: a %PTR_TO_MEM buffer
+ * @buf__sz: the size of @buf, at least 2 bytes. At most 255 bytes are read.
+ *
+ * Reads a string descriptor from the transport of the HID device. This is
+ * currently only supported by USB devices. The descriptor is returned
+ * unmodified, including its two header bytes (bLength and bDescriptorType),
+ * and without converting its UTF-16LE payload.
+ *
+ * Some tablets use vendor-specific string descriptors to report a firmware
+ * identifier or to switch from a keyboard-emulation mode into their native
+ * mode. Reading such a descriptor may therefore change the device state.
+ *
+ * @returns the number of bytes read on success, %-EOPNOTSUPP if the transport
+ * does not provide string descriptors, or another negative error code.
+ */
+__bpf_kfunc int
+hid_bpf_get_string_descriptor(struct hid_bpf_ctx *ctx, __u8 index, __u16 langid,
+			      __u8 *buf, size_t buf__sz)
+{
+	size_t size = min_t(size_t, buf__sz, 255);
+	u8 *dma_data;
+	int ret;
+
+	if (!hid_ops)
+		return -EINVAL;
+
+	if (size < 2)
+		return -EINVAL;
+
+	dma_data = kzalloc(size, GFP_KERNEL);
+	if (!dma_data)
+		return -ENOMEM;
+
+	ret = hid_ops->hid_hw_get_string_descriptor(ctx->hid, index, langid,
+						    dma_data, size);
+	if (ret > (int)size)
+		ret = size;
+	if (ret > 0)
+		memcpy(buf, dma_data, ret);
+
+	kfree(dma_data);
+	return ret;
+}
 __bpf_kfunc_end_defs();
 
 /*
@@ -585,6 +634,7 @@ BTF_ID_FLAGS(func, hid_bpf_hw_request, KF_SLEEPABLE)
 BTF_ID_FLAGS(func, hid_bpf_hw_output_report, KF_SLEEPABLE)
 BTF_ID_FLAGS(func, hid_bpf_input_report, KF_SLEEPABLE)
 BTF_ID_FLAGS(func, hid_bpf_try_input_report)
+BTF_ID_FLAGS(func, hid_bpf_get_string_descriptor, KF_SLEEPABLE)
 BTF_KFUNCS_END(hid_bpf_kfunc_ids)
 
 static const struct btf_kfunc_id_set hid_bpf_kfunc_set = {
@@ -599,6 +649,7 @@ BTF_ID_FLAGS(func, hid_bpf_release_context, KF_RELEASE | KF_SLEEPABLE)
 BTF_ID_FLAGS(func, hid_bpf_hw_request, KF_SLEEPABLE)
 BTF_ID_FLAGS(func, hid_bpf_hw_output_report, KF_SLEEPABLE)
 BTF_ID_FLAGS(func, hid_bpf_input_report, KF_SLEEPABLE)
+BTF_ID_FLAGS(func, hid_bpf_get_string_descriptor, KF_SLEEPABLE)
 BTF_KFUNCS_END(hid_bpf_syscall_kfunc_ids)
 
 static const struct btf_kfunc_id_set hid_bpf_syscall_kfunc_set = {
