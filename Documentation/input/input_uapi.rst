@@ -12,6 +12,7 @@ Linux Input Subsystem userspace API
    input
    event-codes
    multi-touch-protocol
+   tablet-guidelines
    gamepad
    ff
    joydev/index
