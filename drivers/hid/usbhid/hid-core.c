@@ -1347,6 +1347,20 @@ static bool usbhid_may_wakeup(struct hid_device *hid)
 	return device_may_wakeup(&dev->dev);
 }
 
+static int usbhid_get_string_descriptor(struct hid_device *hid, u8 index,
+					u16 langid, u8 *buf, size_t len)
+{
+	struct usb_device *dev = hid_to_usb_dev(hid);
+
+	/* A string descriptor is at most 255 bytes (bLength is a u8) */
+	len = min_t(size_t, len, 255);
+
+	return usb_control_msg(dev, usb_rcvctrlpipe(dev, 0),
+			       USB_REQ_GET_DESCRIPTOR, USB_DIR_IN,
+			       (USB_DT_STRING << 8) | index, langid,
+			       buf, len, USB_CTRL_GET_TIMEOUT);
+}
+
 static const struct hid_ll_driver usb_hid_driver = {
 	.parse = usbhid_parse,
 	.start = usbhid_start,
@@ -1360,6 +1374,7 @@ static const struct hid_ll_driver usb_hid_driver = {
 	.output_report = usbhid_output_report,
 	.idle = usbhid_idle,
 	.may_wakeup = usbhid_may_wakeup,
+	.get_string_descriptor = usbhid_get_string_descriptor,
 };
 
 bool hid_is_usb(const struct hid_device *hdev)
